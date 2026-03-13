@@ -210,14 +210,32 @@ export default function PdfReader() {
     showPopupForSelection(selection);
   }
 
-  function handleTouchEnd() {
-    // Small delay so the browser finishes updating the selection
-    setTimeout(() => {
-      const selection = window.getSelection();
-      if (!selection || selection.isCollapsed) return;
-      showPopupForSelection(selection);
-    }, 150);
-  }
+  // Mobile: selectionchange is more reliable than touchend across iOS/Android
+  useEffect(() => {
+    if (pages.length === 0) return;
+    let timer: ReturnType<typeof setTimeout>;
+    const handleSelectionChange = () => {
+      clearTimeout(timer);
+      timer = setTimeout(() => {
+        const selection = window.getSelection();
+        if (!selection || selection.isCollapsed) return;
+        if (!textRef.current) return;
+        try {
+          const range = selection.getRangeAt(0);
+          if (!textRef.current.contains(range.commonAncestorContainer)) return;
+        } catch {
+          return;
+        }
+        showPopupForSelection(selection);
+      }, 300);
+    };
+    document.addEventListener("selectionchange", handleSelectionChange);
+    return () => {
+      document.removeEventListener("selectionchange", handleSelectionChange);
+      clearTimeout(timer);
+    };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [pages]);
 
   function showPopupForSelection(selection: Selection) {
     const selectedText = selection.toString().trim();
@@ -420,7 +438,6 @@ export default function PdfReader() {
         <div
           ref={textRef}
           onMouseUp={handleMouseUp}
-          onTouchEnd={handleTouchEnd}
           className="text-gray-800 dark:text-gray-200 text-base sm:text-lg leading-relaxed sm:leading-relaxed select-text font-serif"
           style={readerColors.text ? { color: readerColors.text } : undefined}
         >
