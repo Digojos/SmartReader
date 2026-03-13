@@ -4,7 +4,8 @@ import { useEffect, useRef, useState } from "react";
 import { Volume2, X, Loader2 } from "lucide-react";
 
 interface PopupPosition {
-  top: number;
+  top: number;      // bottom of selection + gap (preferred position)
+  rectTop: number;  // top of selection (used to flip above)
   left: number;
 }
 
@@ -20,6 +21,7 @@ export default function SelectionPopup({ text, position, onClose }: SelectionPop
   const [speaking, setSpeaking] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const popupRef = useRef<HTMLDivElement>(null);
+  const [adjustedStyle, setAdjustedStyle] = useState<React.CSSProperties>({ position: "fixed", opacity: 0, zIndex: 9998 });
 
   // Limits
   const MAX_TTS_CHARS = 500; // safe across all browsers and MyMemory fallback
@@ -107,23 +109,46 @@ export default function SelectionPopup({ text, position, onClose }: SelectionPop
     }
   }
 
-  const isMobile = window.innerWidth < 640;
+  // Recompute position every time the popup size may have changed
+  // (on mount, on translation load, on position change)
+  useEffect(() => {
+    const el = popupRef.current;
+    if (!el) return;
 
-  // On mobile: anchor to bottom of screen as a sheet
-  // On desktop: float near the selection, constrained within viewport
-  const style: React.CSSProperties = isMobile
-    ? { position: "fixed", bottom: 0, left: 0, right: 0, zIndex: 1000 }
-    : {
-        position: "fixed",
-        top: Math.min(position.top, window.innerHeight - 220),
-        left: Math.min(Math.max(position.left, 8), window.innerWidth - 312),
-        zIndex: 1000,
-      };
+    const isMobile = window.innerWidth < 640;
+    if (isMobile) {
+      setAdjustedStyle({ position: "fixed", bottom: 0, left: 0, right: 0, zIndex: 9998 });
+      return;
+    }
+
+    const MARGIN = 8;
+    const popupW = el.offsetWidth || 288;
+    const popupH = el.offsetHeight || 200;
+    const vw = window.innerWidth;
+    const vh = window.innerHeight;
+
+    // Horizontal: center on selection, clamped inside viewport
+    let left = position.left;
+    if (left + popupW + MARGIN > vw) left = vw - popupW - MARGIN;
+    if (left < MARGIN) left = MARGIN;
+
+    // Vertical: prefer below selection; flip above if not enough room
+    let top = position.top;
+    if (top + popupH + MARGIN > vh) {
+      // Flip above the selection
+      top = position.rectTop - popupH - MARGIN;
+    }
+    if (top < MARGIN) top = MARGIN;
+
+    setAdjustedStyle({ position: "fixed", top, left, zIndex: 9998, opacity: 1 });
+  }, [position, translation, error, loading]);
+
+  const isMobile = "bottom" in adjustedStyle;
 
   return (
     <div
       ref={popupRef}
-      style={style}
+      style={adjustedStyle}
       className={
         isMobile
           ? "w-full bg-white dark:bg-gray-900 border-t border-gray-200 dark:border-gray-700 rounded-t-2xl shadow-2xl p-4 pb-8"
@@ -131,7 +156,7 @@ export default function SelectionPopup({ text, position, onClose }: SelectionPop
       }
     >
       {/* Header */}
-      <div className="flex items-start justify-between gap-2 mb-3">
+      <div className="flex items-start justify-between gap-2 mb-2">
         <p className="text-sm font-semibold text-gray-800 dark:text-gray-100 line-clamp-3 leading-snug">
           {text.length > 120 ? text.slice(0, 120) + "…" : text}
         </p>
@@ -144,8 +169,32 @@ export default function SelectionPopup({ text, position, onClose }: SelectionPop
         </button>
       </div>
 
-      {/* Divider */}
-      <div className="border-t border-gray-100 dark:border-gray-700 mb-3" />
+      {/* Character count */}
+      <div className="flex items-center gap-1.5 mb-3">
+        <div className="flex-1 h-1 rounded-full bg-gray-100 dark:bg-gray-700 overflow-hidden">
+          <div
+            className={`h-full rounded-full transition-all ${
+              text.length > MAX_TTS_CHARS
+                ? "bg-red-500"
+                : text.length > MAX_TTS_CHARS * 0.8
+                ? "bg-amber-400"
+                : "bg-green-500"
+            }`}
+            style={{ width: `${Math.min((text.length / MAX_TTS_CHARS) * 100, 100)}%` }}
+          />
+        </div>
+        <span
+          className={`text-xs tabular-nums shrink-0 ${
+            text.length > MAX_TTS_CHARS
+              ? "text-red-500 font-semibold"
+              : text.length > MAX_TTS_CHARS * 0.8
+              ? "text-amber-500"
+              : "text-gray-400 dark:text-gray-500"
+          }`}
+        >
+          {text.length}/{MAX_TTS_CHARS}
+        </span>
+      </div>
 
       {/* Translation */}
       <div className="min-h-[40px] mb-3">

@@ -9,7 +9,7 @@ import ColorSettings, { ReaderColors, DEFAULT_COLORS, STORAGE_KEY as COLOR_KEY }
 
 interface PopupState {
   text: string;
-  position: { top: number; left: number };
+  position: { top: number; rectTop: number; left: number };
 }
 
 export default function PdfReader() {
@@ -19,12 +19,13 @@ export default function PdfReader() {
   const [error, setError] = useState<string | null>(null);
   const [fileName, setFileName] = useState<string | null>(null);
   const [popup, setPopup] = useState<PopupState | null>(null);
-  const [editing, setEditing] = useState(false);
+  const [editingPage, setEditingPage] = useState<number | null>(null);
   const [editDraft, setEditDraft] = useState("");
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [selectionWarning, setSelectionWarning] = useState<string | null>(null);
   const [readerColors, setReaderColors] = useState<ReaderColors>(DEFAULT_COLORS);
   const textRef = useRef<HTMLDivElement>(null);
+  const pageRefs = useRef<(HTMLDivElement | null)[]>([]);
 
   // Load saved colors from localStorage on mount
   useEffect(() => {
@@ -44,6 +45,37 @@ export default function PdfReader() {
     return () => document.removeEventListener("fullscreenchange", handler);
   }, []);
 
+  // Track which page is currently visible via IntersectionObserver
+  useEffect(() => {
+    if (pages.length === 0) return;
+    // Reset refs array length
+    pageRefs.current = pageRefs.current.slice(0, pages.length);
+    const observer = new IntersectionObserver(
+      (entries) => {
+        let best: IntersectionObserverEntry | null = null;
+        for (const entry of entries) {
+          if (entry.isIntersecting) {
+            if (!best || entry.intersectionRatio > best.intersectionRatio) best = entry;
+          }
+        }
+        if (best) {
+          const idx = parseInt(best.target.getAttribute("data-page-index") ?? "0", 10);
+          setCurrentPage(idx);
+        }
+      },
+      { threshold: [0.1, 0.3, 0.5] }
+    );
+    pageRefs.current.forEach((el) => { if (el) observer.observe(el); });
+    return () => observer.disconnect();
+  }, [pages]);
+
+  function goToPage(index: number) {
+    const el = pageRefs.current[index];
+    if (el) el.scrollIntoView({ behavior: "smooth", block: "start" });
+    setCurrentPage(index);
+    setPopup(null);
+  }
+
   function toggleFullscreen() {
     if (!document.fullscreenElement) {
       document.documentElement.requestFullscreen().catch(() => {});
@@ -52,23 +84,28 @@ export default function PdfReader() {
     }
   }
 
-  function startEdit() {
-    setEditDraft(pages[currentPage] ?? "");
+  function startEdit(pageIndex: number) {
+    setEditDraft(pages[pageIndex] ?? "");
     setPopup(null);
-    setEditing(true);
+    setEditingPage(pageIndex);
+    // Scroll the page into view so the textarea is visible
+    setTimeout(() => {
+      pageRefs.current[pageIndex]?.scrollIntoView({ behavior: "smooth", block: "start" });
+    }, 50);
   }
 
   function saveEdit() {
+    if (editingPage === null) return;
     setPages((prev) => {
       const next = [...prev];
-      next[currentPage] = editDraft;
+      next[editingPage] = editDraft;
       return next;
     });
-    setEditing(false);
+    setEditingPage(null);
   }
 
   function cancelEdit() {
-    setEditing(false);
+    setEditingPage(null);
   }
 
   // Auto-save pages to localStorage whenever they change
@@ -204,6 +241,7 @@ export default function PdfReader() {
       text: selectedText,
       position: {
         top: rect.bottom + 8,
+        rectTop: rect.top,
         left: rect.left + rect.width / 2 - 144, // center the 288px popup
       },
     });
@@ -220,10 +258,8 @@ export default function PdfReader() {
     setFileName(null);
     setPopup(null);
     setError(null);
-    setEditing(false);
+    setEditingPage(null);
   }
-
-  const pageText = pages[currentPage] ?? "";
 
   // ── Render: Upload screen ───────────────────────────────────────────────────
   if (pages.length === 0) {
@@ -307,7 +343,7 @@ export default function PdfReader() {
         {pages.length > 1 && (
           <div className="flex items-center gap-1 sm:gap-2 text-sm text-gray-600 dark:text-gray-400 shrink-0">
             <button
-              onClick={() => { setCurrentPage((p) => Math.max(0, p - 1)); setPopup(null); }}
+              onClick={() => goToPage(Math.max(0, currentPage - 1))}
               disabled={currentPage === 0}
               className="p-1.5 rounded hover:bg-gray-100 dark:hover:bg-gray-800 disabled:opacity-30 transition-colors"
               aria-label="Página anterior"
@@ -318,7 +354,7 @@ export default function PdfReader() {
               {currentPage + 1} / {pages.length}
             </span>
             <button
-              onClick={() => { setCurrentPage((p) => Math.min(pages.length - 1, p + 1)); setPopup(null); }}
+              onClick={() => goToPage(Math.min(pages.length - 1, currentPage + 1))}
               disabled={currentPage === pages.length - 1}
               className="p-1.5 rounded hover:bg-gray-100 dark:hover:bg-gray-800 disabled:opacity-30 transition-colors"
               aria-label="Próxima página"
@@ -330,8 +366,11 @@ export default function PdfReader() {
 
         {/* Actions */}
         <div className="flex items-center gap-1.5 sm:gap-3 shrink-0">
-          {editing ? (
+          {editingPage !== null && (
             <>
+              <span className="hidden sm:inline text-xs text-gray-400 dark:text-gray-500 select-none">
+                Editando p.{editingPage + 1}
+              </span>
               <button
                 onClick={saveEdit}
                 className="flex items-center gap-1 sm:gap-1.5 text-xs sm:text-sm bg-green-600 hover:bg-green-700 text-white px-2 sm:px-3 py-1.5 rounded-lg transition-colors"
@@ -345,14 +384,6 @@ export default function PdfReader() {
                 <X size={14} /> <span className="hidden sm:inline">Cancelar</span>
               </button>
             </>
-          ) : (
-            <button
-              onClick={startEdit}
-              className="flex items-center gap-1 sm:gap-1.5 text-xs sm:text-sm text-gray-500 hover:text-gray-800 dark:text-gray-400 dark:hover:text-gray-200 transition-colors"
-              title="Editar texto desta página"
-            >
-              <Pencil size={14} /> <span className="hidden sm:inline">Editar</span>
-            </button>
           )}
           <ThemeToggle />
           <ColorSettings colors={readerColors} onChange={setReaderColors} />
@@ -383,43 +414,79 @@ export default function PdfReader() {
 
       {/* Text content */}
       <main className="max-w-3xl mx-auto px-4 sm:px-6 py-6 sm:py-10">
-        {editing ? (
-          <>
-            <p className="text-xs text-gray-400 mb-4 select-none">
-              Edite o texto abaixo para corrigir artefatos do PDF (títulos colados, letras separadas, etc.).
-            </p>
-            <textarea
-              value={editDraft}
-              onChange={(e) => setEditDraft(e.target.value)}
-              className="w-full min-h-[70vh] text-gray-800 dark:text-gray-200 bg-white dark:bg-gray-900 border border-gray-300 dark:border-gray-700 rounded-xl p-4 text-sm sm:text-base leading-relaxed font-serif resize-y focus:outline-none focus:ring-2 focus:ring-blue-500"
-              style={{
-                ...(readerColors.bg ? { backgroundColor: readerColors.bg } : {}),
-                ...(readerColors.text ? { color: readerColors.text } : {}),
-              }}
-              spellCheck={false}
-            />
-          </>
-        ) : (
-          <>
-            <p className="text-xs text-gray-400 mb-4 sm:mb-6 select-none">
-              Selecione qualquer trecho do texto para ver a tradução e ouvir a pronúncia.
-            </p>
-            {selectionWarning && (
-              <div className="mb-4 bg-amber-50 dark:bg-amber-950 border border-amber-200 dark:border-amber-800 text-amber-700 dark:text-amber-400 text-xs rounded-lg px-3 py-2 select-none">
-                {selectionWarning}
-              </div>
-            )}
+        <p className="text-xs text-gray-400 mb-4 sm:mb-6 select-none">
+          Selecione qualquer trecho do texto para ver a tradução e ouvir a pronúncia.
+        </p>
+        <div
+          ref={textRef}
+          onMouseUp={handleMouseUp}
+          onTouchEnd={handleTouchEnd}
+          className="text-gray-800 dark:text-gray-200 text-base sm:text-lg leading-relaxed sm:leading-relaxed select-text font-serif"
+          style={readerColors.text ? { color: readerColors.text } : undefined}
+        >
+          {pages.map((text, i) => (
             <div
-              ref={textRef}
-              onMouseUp={handleMouseUp}
-              onTouchEnd={handleTouchEnd}
-              className="text-gray-800 dark:text-gray-200 text-base sm:text-lg leading-relaxed sm:leading-relaxed whitespace-pre-wrap select-text font-serif"
-              style={readerColors.text ? { color: readerColors.text } : undefined}
+              key={i}
+              ref={(el) => { pageRefs.current[i] = el; }}
+              data-page-index={i}
             >
-              {pageText}
+              {/* Page divider with inline edit button */}
+              {i > 0 && (
+                <div className="flex items-center gap-3 my-8 select-none" aria-hidden>
+                  <div className="flex-1 border-t border-dashed border-gray-300 dark:border-gray-600" />
+                  <span className="text-xs text-gray-400 dark:text-gray-500 font-medium tracking-wide">
+                    Página {i + 1}
+                  </span>
+                  {editingPage === null && (
+                    <button
+                      onClick={() => startEdit(i)}
+                      className="flex items-center gap-1 text-xs text-gray-400 hover:text-blue-600 dark:hover:text-blue-400 transition-colors"
+                      title={`Editar página ${i + 1}`}
+                    >
+                      <Pencil size={11} />
+                      Editar
+                    </button>
+                  )}
+                  <div className="flex-1 border-t border-dashed border-gray-300 dark:border-gray-600" />
+                </div>
+              )}
+              {/* First page edit button (above content) */}
+              {i === 0 && editingPage === null && (
+                <div className="flex justify-end mb-3">
+                  <button
+                    onClick={() => startEdit(0)}
+                    className="flex items-center gap-1 text-xs text-gray-400 hover:text-blue-600 dark:hover:text-blue-400 transition-colors select-none"
+                    title="Editar página 1"
+                  >
+                    <Pencil size={11} />
+                    Editar página 1
+                  </button>
+                </div>
+              )}
+              {/* Inline edit textarea or page text */}
+              {editingPage === i ? (
+                <>
+                  <p className="text-xs text-gray-400 mb-2 select-none">
+                    Corrija artefatos do PDF (títulos colados, letras separadas, etc.).
+                  </p>
+                  <textarea
+                    autoFocus
+                    value={editDraft}
+                    onChange={(e) => setEditDraft(e.target.value)}
+                    className="w-full min-h-[50vh] text-gray-800 dark:text-gray-200 bg-white dark:bg-gray-900 border border-blue-400 dark:border-blue-600 rounded-xl p-4 text-sm sm:text-base leading-relaxed font-serif resize-y focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    style={{
+                      ...(readerColors.bg ? { backgroundColor: readerColors.bg } : {}),
+                      ...(readerColors.text ? { color: readerColors.text } : {}),
+                    }}
+                    spellCheck={false}
+                  />
+                </>
+              ) : (
+                <span className="whitespace-pre-wrap">{text}</span>
+              )}
             </div>
-          </>
-        )}
+          ))}
+        </div>
       </main>
 
       {/* Selection popup */}
@@ -430,6 +497,19 @@ export default function PdfReader() {
           onClose={closePopup}
         />
       )}
+
+      {/* Selection warning toast */}
+      <div
+        aria-live="polite"
+        className={`fixed bottom-6 left-1/2 -translate-x-1/2 z-[9999] flex items-center gap-2 px-4 py-3 rounded-xl shadow-lg border text-sm font-medium select-none pointer-events-none transition-all duration-300 ${
+          selectionWarning
+            ? "opacity-100 translate-y-0"
+            : "opacity-0 translate-y-4"
+        } bg-amber-50 dark:bg-amber-950 border-amber-300 dark:border-amber-700 text-amber-800 dark:text-amber-300`}
+      >
+        <span>⚠️</span>
+        <span>{selectionWarning}</span>
+      </div>
     </div>
   );
 }
