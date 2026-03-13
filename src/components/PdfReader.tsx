@@ -4,7 +4,6 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { useDropzone } from "react-dropzone";
 import { FileText, Upload, ChevronLeft, ChevronRight, Pencil, Check, X, Download, Maximize, Minimize } from "lucide-react";
 import SelectionPopup from "./SelectionPopup";
-import ThemeToggle from "./ThemeToggle";
 import ColorSettings, { ReaderColors, DEFAULT_COLORS, STORAGE_KEY as COLOR_KEY } from "./ColorSettings";
 
 interface PopupState {
@@ -403,7 +402,6 @@ export default function PdfReader() {
               </button>
             </>
           )}
-          <ThemeToggle />
           <ColorSettings colors={readerColors} onChange={setReaderColors} />
           <button
             onClick={toggleFullscreen}

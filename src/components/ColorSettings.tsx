@@ -69,7 +69,7 @@ export default function ColorSettings({ colors, onChange }: Props) {
 
   function reset() {
     onChange(DEFAULT_COLORS);
-    localStorage.removeItem(STORAGE_KEY);
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(DEFAULT_COLORS));
   }
 
   const isCustom =
@@ -97,17 +97,16 @@ export default function ColorSettings({ colors, onChange }: Props) {
         <div className="absolute right-0 top-9 z-50 w-80 bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl shadow-2xl p-4 max-h-[90vh] overflow-y-auto">
           <div className="flex items-center justify-between mb-3">
             <span className="text-xs font-semibold text-gray-600 dark:text-gray-400 uppercase tracking-wide">
-              Cores da leitura
+              Personalização
             </span>
-            {isCustom && (
-              <button
-                onClick={reset}
-                className="flex items-center gap-1 text-xs text-red-500 hover:text-red-700 transition-colors"
-                title="Restaurar padrão"
-              >
-                <RotateCcw size={12} /> Restaurar
-              </button>
-            )}
+            <button
+              onClick={reset}
+              disabled={!isCustom}
+              className="flex items-center gap-1 text-xs transition-colors disabled:opacity-30 disabled:cursor-not-allowed text-red-500 hover:text-red-700 disabled:hover:text-red-500"
+              title="Restaurar configurações padrão"
+            >
+              <RotateCcw size={12} /> Restaurar padrão
+            </button>
           </div>
 
           {/* Presets */}
