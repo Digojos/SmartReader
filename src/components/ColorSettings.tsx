@@ -6,17 +6,33 @@ import { Palette, RotateCcw } from "lucide-react";
 export interface ReaderColors {
   bg: string;
   text: string;
+  fontSize: number;
+  fontFamily: string;
 }
 
-const DEFAULT_COLORS: ReaderColors = { bg: "", text: "" };
+const DEFAULT_COLORS: ReaderColors = { bg: "", text: "", fontSize: 18, fontFamily: "" };
+
+const FONTS: Array<{ label: string; value: string; serif?: boolean }> = [
+  { label: "Padrão (sistema)",     value: "" },
+  { label: "Georgia",              value: "Georgia, serif",                            serif: true },
+  { label: "Times New Roman",      value: "'Times New Roman', serif",                  serif: true },
+  { label: "Palatino",             value: "'Palatino Linotype', Palatino, serif",       serif: true },
+  { label: "Garamond",             value: "Garamond, serif",                            serif: true },
+  { label: "Book Antiqua",         value: "'Book Antiqua', Palatino, serif",            serif: true },
+  { label: "Arial",                value: "Arial, sans-serif" },
+  { label: "Verdana",              value: "Verdana, sans-serif" },
+  { label: "Trebuchet MS",         value: "'Trebuchet MS', sans-serif" },
+  { label: "Tahoma",               value: "Tahoma, sans-serif" },
+  { label: "Courier New",          value: "'Courier New', monospace" },
+];
 
 const PRESETS: Array<{ label: string } & ReaderColors> = [
-  { label: "Padrão",      bg: "",        text: ""        },
-  { label: "Sépia",       bg: "#f5efe0", text: "#3b2a1a" },
-  { label: "Verde suave", bg: "#e8f5e9", text: "#1b3a22" },
-  { label: "Azul suave",  bg: "#e8f0fe", text: "#0d2137" },
-  { label: "Cinza escuro",bg: "#1e2330", text: "#d1d5db" },
-  { label: "Preto",       bg: "#0a0a0a", text: "#e5e5e5" },
+  { label: "Padrão",       bg: "",        text: "",        fontSize: 18, fontFamily: "" },
+  { label: "Sépia",        bg: "#f5efe0", text: "#3b2a1a", fontSize: 18, fontFamily: "Georgia, serif" },
+  { label: "Verde suave",  bg: "#e8f5e9", text: "#1b3a22", fontSize: 18, fontFamily: "" },
+  { label: "Azul suave",   bg: "#e8f0fe", text: "#0d2137", fontSize: 18, fontFamily: "" },
+  { label: "Cinza escuro", bg: "#1e2330", text: "#d1d5db", fontSize: 18, fontFamily: "" },
+  { label: "Preto",        bg: "#0a0a0a", text: "#e5e5e5", fontSize: 18, fontFamily: "" },
 ];
 
 const STORAGE_KEY = "reader-custom-colors";
@@ -56,7 +72,11 @@ export default function ColorSettings({ colors, onChange }: Props) {
     localStorage.removeItem(STORAGE_KEY);
   }
 
-  const isCustom = colors.bg !== "" || colors.text !== "";
+  const isCustom =
+    colors.bg !== "" ||
+    colors.text !== "" ||
+    colors.fontSize !== DEFAULT_COLORS.fontSize ||
+    colors.fontFamily !== "";
 
   return (
     <div ref={panelRef} className="relative">
@@ -74,7 +94,7 @@ export default function ColorSettings({ colors, onChange }: Props) {
       </button>
 
       {open && (
-        <div className="absolute right-0 top-9 z-50 w-72 bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl shadow-2xl p-4">
+        <div className="absolute right-0 top-9 z-50 w-80 bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl shadow-2xl p-4 max-h-[90vh] overflow-y-auto">
           <div className="flex items-center justify-between mb-3">
             <span className="text-xs font-semibold text-gray-600 dark:text-gray-400 uppercase tracking-wide">
               Cores da leitura
@@ -97,7 +117,7 @@ export default function ColorSettings({ colors, onChange }: Props) {
               return (
                 <button
                   key={preset.label}
-                  onClick={() => apply({ bg: preset.bg, text: preset.text })}
+                  onClick={() => apply({ bg: preset.bg, text: preset.text, fontSize: preset.fontSize, fontFamily: preset.fontFamily })}
                   className={`relative rounded-lg border-2 transition-all overflow-hidden ${
                     active
                       ? "border-blue-500 scale-105 shadow"
@@ -156,17 +176,59 @@ export default function ColorSettings({ colors, onChange }: Props) {
                 />
               </div>
             </div>
+
+            {/* Font size */}
+            <div>
+              <div className="flex items-center justify-between mb-1.5">
+                <label className="text-xs text-gray-600 dark:text-gray-400">Tamanho da fonte</label>
+                <span className="text-xs font-mono text-gray-500 dark:text-gray-400">{colors.fontSize}px</span>
+              </div>
+              <input
+                type="range"
+                min={13}
+                max={28}
+                step={1}
+                value={colors.fontSize}
+                onChange={(e) => apply({ ...colors, fontSize: Number(e.target.value) })}
+                className="w-full accent-blue-600"
+              />
+              <div className="flex justify-between text-[10px] text-gray-400 mt-0.5">
+                <span>13px</span>
+                <span>28px</span>
+              </div>
+            </div>
+
+            {/* Font family */}
+            <div>
+              <label className="text-xs text-gray-600 dark:text-gray-400 block mb-1.5">Fonte</label>
+              <select
+                value={colors.fontFamily}
+                onChange={(e) => apply({ ...colors, fontFamily: e.target.value })}
+                className="w-full rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-200 text-sm px-3 py-1.5 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                style={{ fontFamily: colors.fontFamily || undefined }}
+              >
+                {FONTS.map((font) => (
+                  <option key={font.value} value={font.value} style={{ fontFamily: font.value || undefined }}>
+                    {font.label}
+                  </option>
+                ))}
+              </select>
+            </div>
           </div>
 
           {/* Preview */}
-          {isCustom && (
-            <div
-              className="mt-3 rounded-lg p-3 text-xs border border-gray-200 dark:border-gray-700"
-              style={{ backgroundColor: colors.bg, color: colors.text }}
-            >
-              Prévia: <em>The quick brown fox jumps over the lazy dog.</em>
-            </div>
-          )}
+          <div
+            className="mt-3 rounded-lg p-3 border border-gray-200 dark:border-gray-700"
+            style={{
+              backgroundColor: colors.bg || undefined,
+              color: colors.text || undefined,
+              fontSize: colors.fontSize,
+              fontFamily: colors.fontFamily || undefined,
+            }}
+          >
+            <span className="text-[10px] text-gray-400 block mb-1 select-none" style={{ fontFamily: undefined, fontSize: 10 }}>Prévia</span>
+            <em>The quick brown fox jumps over the lazy dog.</em>
+          </div>
         </div>
       )}
     </div>

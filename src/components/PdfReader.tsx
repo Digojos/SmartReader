@@ -438,8 +438,12 @@ export default function PdfReader() {
         <div
           ref={textRef}
           onMouseUp={handleMouseUp}
-          className="text-gray-800 dark:text-gray-200 text-base sm:text-lg leading-relaxed sm:leading-relaxed select-text font-serif"
-          style={readerColors.text ? { color: readerColors.text } : undefined}
+          className="text-gray-800 dark:text-gray-200 leading-relaxed select-text"
+          style={{
+            ...(readerColors.text ? { color: readerColors.text } : {}),
+            fontSize: readerColors.fontSize,
+            fontFamily: readerColors.fontFamily || undefined,
+          }}
         >
           {pages.map((text, i) => (
             <div
@@ -494,6 +498,8 @@ export default function PdfReader() {
                     style={{
                       ...(readerColors.bg ? { backgroundColor: readerColors.bg } : {}),
                       ...(readerColors.text ? { color: readerColors.text } : {}),
+                      fontSize: readerColors.fontSize,
+                      fontFamily: readerColors.fontFamily || undefined,
                     }}
                     spellCheck={false}
                   />
