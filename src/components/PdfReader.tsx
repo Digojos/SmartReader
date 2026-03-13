@@ -35,7 +35,7 @@ export default function PdfReader() {
   }, []);
 
   // Limits
-  const MAX_TRANSLATE_CHARS = 1000; // safe for LibreTranslate + MyMemory fallback
+  const MAX_TRANSLATE_CHARS = 500; // safe for LibreTranslate + MyMemory fallback
 
   // Track actual fullscreen state (handles Esc key exit too)
   useEffect(() => {
