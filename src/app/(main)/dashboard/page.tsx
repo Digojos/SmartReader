@@ -23,7 +23,7 @@ export default async function DashboardPage() {
   const wordsForReview = vocabulary.filter((v: { nextReview: Date | string }) => new Date(v.nextReview) <= new Date()).length;
   const avgScore =
     quizAttempts.length > 0
-      ? Math.round(quizAttempts.reduce((s, a) => s + a.score, 0) / quizAttempts.length)
+      ? Math.round(quizAttempts.reduce((s: number, a: { score: number }) => s + a.score, 0) / quizAttempts.length)
       : 0;
 
   const stats = [
@@ -33,6 +33,7 @@ export default async function DashboardPage() {
     { label: "Study Streak", value: `${user?.streakDays ?? 0} days`, extra: wordsForReview > 0 ? `${wordsForReview} to review` : "Up to date!", icon: Flame, color: "orange" },
   ];
 
+  
   return (
     <div className="space-y-8">
       {/* Header */}
