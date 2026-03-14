@@ -6,9 +6,10 @@ services:
     build:
       context: .
       dockerfile: Dockerfile
-    expose:
-      - "3000"
+    ports:
+      - "127.0.0.1:3000:3000"
     environment:
+      DATABASE_URL: ${DATABASE_URL}
       NEXTAUTH_URL: ${NEXTAUTH_URL:-https://english.forestcode.vps-kinghost.net}
       NEXTAUTH_SECRET: ${NEXTAUTH_SECRET:-change_me_in_production}
       LIBRETRANSLATE_URL: http://english-libretranslate:5000
