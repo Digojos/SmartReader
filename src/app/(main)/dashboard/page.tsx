@@ -19,8 +19,8 @@ export default async function DashboardPage() {
       prisma.text.findMany({ take: 4, orderBy: { createdAt: "desc" } }),
     ]);
 
-  const masteredWords = vocabulary.filter((v) => v.mastery >= 4).length;
-  const wordsForReview = vocabulary.filter((v) => new Date(v.nextReview) <= new Date()).length;
+  const masteredWords = vocabulary.filter((v: { mastery: number }) => v.mastery >= 4).length;
+  const wordsForReview = vocabulary.filter((v: { nextReview: Date | string }) => new Date(v.nextReview) <= new Date()).length;
   const avgScore =
     quizAttempts.length > 0
       ? Math.round(quizAttempts.reduce((s, a) => s + a.score, 0) / quizAttempts.length)
