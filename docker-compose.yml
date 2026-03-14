@@ -1,13 +1,30 @@
 version: "3.9"
 
 services:
+  apache:
+    container_name: english-apache
+    build:
+      context: ./apache
+      dockerfile: Dockerfile
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - /etc/letsencrypt:/etc/letsencrypt:ro
+      - certbot-webroot:/var/www/certbot
+    depends_on:
+      - app
+    restart: unless-stopped
+    networks:
+      - shared_network
+
   app:
     container_name: english-app
     build:
       context: .
       dockerfile: Dockerfile
-    ports:
-      - "127.0.0.1:3000:3000"
+    expose:
+      - "3000"
     environment:
       DATABASE_URL: ${DATABASE_URL}
       NEXTAUTH_URL: ${NEXTAUTH_URL:-https://english.forestcode.vps-kinghost.net}
@@ -31,6 +48,9 @@ services:
     restart: unless-stopped
     networks:
       - shared_network
+
+volumes:
+  certbot-webroot:
 
 networks:
   shared_network:
