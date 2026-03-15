@@ -17,7 +17,7 @@ Guia para atualizar o código fonte em produção na VPS Linux.
 
 ```bash
 # 1. Acesse o diretório do projeto na VPS
-cd /var/www/english
+cd /root/SmartReader
 
 # 2. Baixe as atualizações do repositório
 git pull origin main
