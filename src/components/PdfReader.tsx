@@ -15,6 +15,7 @@ export default function PdfReader() {
   const [pages, setPages] = useState<string[]>([]);
   const [currentPage, setCurrentPage] = useState(0);
   const [loading, setLoading] = useState(false);
+  const [manualPage, setManualPage] = useState<string>("");
   const [error, setError] = useState<string | null>(null);
   const [fileName, setFileName] = useState<string | null>(null);
   const [popup, setPopup] = useState<PopupState | null>(null);
@@ -25,6 +26,10 @@ export default function PdfReader() {
   const [readerColors, setReaderColors] = useState<ReaderColors>(DEFAULT_COLORS);
   const textRef = useRef<HTMLDivElement>(null);
   const pageRefs = useRef<(HTMLDivElement | null)[]>([]);
+  // Flag para evitar que o auto-save sobrescreva a página restaurada no carregamento inicial
+  const restoredRef = useRef(false);
+  // Flag para bloquear o IntersectionObserver durante navegação programática
+  const navigatingRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // Load saved colors from localStorage on mount
   useEffect(() => {
@@ -57,7 +62,7 @@ export default function PdfReader() {
             if (!best || entry.intersectionRatio > best.intersectionRatio) best = entry;
           }
         }
-        if (best) {
+        if (best && !navigatingRef.current) {
           const idx = parseInt(best.target.getAttribute("data-page-index") ?? "0", 10);
           setCurrentPage(idx);
         }
@@ -68,11 +73,29 @@ export default function PdfReader() {
     return () => observer.disconnect();
   }, [pages]);
 
+
+  // Função para ir para a página informada manualmente
+  function goToManualPage() {
+    const maxPage = readerColors.numPages || pages.length;
+    const pageNum = parseInt(manualPage, 10);
+    if (!isNaN(pageNum) && pageNum > 0 && pageNum <= maxPage) {
+      goToPage(pageNum - 1);
+      // Salva no localStorage
+      if (fileName) {
+        localStorage.setItem(`pdf-reader:current-page:${fileName}`, String(pageNum));
+      }
+    }
+  }
+
+  // Função original
   function goToPage(index: number) {
     const el = pageRefs.current[index];
-    if (el) el.scrollIntoView({ behavior: "smooth", block: "start" });
+    // Bloqueia o IntersectionObserver durante o scroll suave para evitar salto de páginas
+    if (navigatingRef.current) clearTimeout(navigatingRef.current);
+    navigatingRef.current = setTimeout(() => { navigatingRef.current = null; }, 800);
     setCurrentPage(index);
     setPopup(null);
+    if (el) el.scrollIntoView({ behavior: "smooth", block: "start" });
   }
 
   function toggleFullscreen() {
@@ -107,7 +130,39 @@ export default function PdfReader() {
     setEditingPage(null);
   }
 
-  // Auto-save pages to localStorage whenever they change
+
+  // Restaurar página salva ao abrir PDF
+  useEffect(() => {
+    if (!fileName || pages.length === 0) {
+      restoredRef.current = false;
+      return;
+    }
+    const savedPage = localStorage.getItem(`pdf-reader:current-page:${fileName}`);
+    if (savedPage) {
+      const pageNum = parseInt(savedPage, 10);
+      if (!isNaN(pageNum) && pageNum > 0 && pageNum <= pages.length) {
+        setCurrentPage(pageNum - 1);
+        setManualPage(String(pageNum));
+      } else {
+        setManualPage("1");
+      }
+    } else {
+      setManualPage("1");
+    }
+    // Marca restauração concluída no próximo tick, após os estados serem aplicados
+    setTimeout(() => { restoredRef.current = true; }, 0);
+  // Só executa quando o arquivo muda (não quando currentPage muda)
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [fileName, pages.length]);
+
+  // Auto-save da página atual ao navegar (só após restauração inicial)
+  useEffect(() => {
+    if (!restoredRef.current || !fileName || pages.length === 0) return;
+    localStorage.setItem(`pdf-reader:current-page:${fileName}`, String(currentPage + 1));
+    setManualPage(String(currentPage + 1));
+  }, [currentPage, fileName, pages.length]);
+
+  // Auto-save pages to localStorage sempre que mudam
   useEffect(() => {
     if (fileName && pages.length > 0) {
       localStorage.setItem(`pdf-reader:${fileName}`, JSON.stringify(pages));
@@ -177,6 +232,7 @@ export default function PdfReader() {
     setPages([]);
     setCurrentPage(0);
     setPopup(null);
+    restoredRef.current = false;
     setFileName(file.name);
 
     try {
@@ -356,7 +412,7 @@ export default function PdfReader() {
           </span>
         </div>
 
-        {/* Page navigation */}
+        {/* Page navigation + campo manual */}
         {pages.length > 1 && (
           <div className="flex items-center gap-1 sm:gap-2 text-sm text-gray-600 dark:text-gray-400 shrink-0">
             <button
@@ -378,6 +434,23 @@ export default function PdfReader() {
             >
               <ChevronRight size={18} />
             </button>
+            {/* Campo manual para digitar página */}
+            <input
+              type="number"
+              min={1}
+              max={readerColors.numPages || pages.length}
+              value={manualPage}
+              onChange={e => setManualPage(e.target.value)}
+              onKeyDown={e => { if (e.key === "Enter") goToManualPage(); }}
+              className="w-14 ml-2 px-1 py-0.5 rounded border border-gray-300 dark:border-gray-700 text-xs text-center bg-white dark:bg-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-400"
+              title="Ir para página"
+              style={{ width: 48 }}
+            />
+            <button
+              onClick={goToManualPage}
+              className="ml-1 px-2 py-1 rounded bg-blue-500 hover:bg-blue-600 text-white text-xs"
+              title="Ir para página"
+            >Ir</button>
           </div>
         )}
 

@@ -8,9 +8,10 @@ export interface ReaderColors {
   text: string;
   fontSize: number;
   fontFamily: string;
+  numPages?: number; // novo campo opcional
 }
 
-const DEFAULT_COLORS: ReaderColors = { bg: "", text: "", fontSize: 18, fontFamily: "" };
+const DEFAULT_COLORS: ReaderColors = { bg: "", text: "", fontSize: 18, fontFamily: "", numPages: undefined };
 
 const FONTS: Array<{ label: string; value: string; serif?: boolean }> = [
   { label: "Padrão (sistema)",     value: "" },
@@ -227,6 +228,23 @@ export default function ColorSettings({ colors, onChange }: Props) {
                 ))}
               </select>
             </div>
+          </div>
+
+          {/* Número de páginas */}
+          <div className="mt-3">
+            <label className="text-xs text-gray-600 dark:text-gray-400 block mb-1.5">Número de páginas</label>
+            <input
+              type="number"
+              min={1}
+              value={colors.numPages ?? ''}
+              onChange={e => {
+                const num = parseInt(e.target.value, 10);
+                apply({ ...colors, numPages: isNaN(num) ? undefined : num });
+              }}
+              className="w-24 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-200 text-sm px-3 py-1.5 focus:outline-none focus:ring-2 focus:ring-blue-500"
+              placeholder="Ex: 280"
+            />
+            <span className="text-xs text-gray-400 ml-2">(opcional, para navegação manual)</span>
           </div>
 
           {/* Preview */}
