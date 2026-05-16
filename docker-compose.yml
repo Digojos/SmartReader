@@ -1,6 +1,25 @@
-version: "3.9"
-
 services:
+  db:
+    container_name: english-db
+    image: mysql:8.0
+    command: --default-authentication-plugin=mysql_native_password
+    environment:
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:-root_change_me}
+      MYSQL_DATABASE: ${MYSQL_DATABASE:-english}
+      MYSQL_USER: ${MYSQL_USER:-english}
+      MYSQL_PASSWORD: ${MYSQL_PASSWORD:-english_change_me}
+    volumes:
+      - mysql_data:/var/lib/mysql
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "127.0.0.1", "-u", "root", "-p$$MYSQL_ROOT_PASSWORD"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 30s
+    restart: unless-stopped
+    networks:
+      - shared_network
+
   app:
     container_name: english-app
     build:
@@ -9,13 +28,19 @@ services:
     ports:
       - "3000:3000"
     environment:
-      DATABASE_URL: ${DATABASE_URL}
+      DATABASE_URL: mysql://${MYSQL_USER:-english}:${MYSQL_PASSWORD:-english_change_me}@db:3306/${MYSQL_DATABASE:-english}
       NEXTAUTH_URL: ${NEXTAUTH_URL:-https://english.forestcode.vps-kinghost.net}
       NEXTAUTH_SECRET: ${NEXTAUTH_SECRET:-change_me_in_production}
       LIBRETRANSLATE_URL: http://english-libretranslate:5000
       LIBRETRANSLATE_API_KEY: ""
+      LIBRARY_UPLOAD_DIR: /app/uploads/library
+    volumes:
+      - library_uploads:/app/uploads
     depends_on:
-      - libretranslate
+      db:
+        condition: service_healthy
+      libretranslate:
+        condition: service_started
     restart: unless-stopped
     networks:
       - shared_network
@@ -35,3 +60,7 @@ services:
 networks:
   shared_network:
     external: true
+
+volumes:
+  mysql_data:
+  library_uploads:

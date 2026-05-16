@@ -22,10 +22,16 @@ cd /root/SmartReader
 # 2. Baixe as atualizações do repositório
 git pull origin main
 
-# 3. Rebuild da imagem da aplicação (sem cache para garantir que o novo código seja usado)
-docker compose build --no-cache app
+# 3. Rebuild da aplicação
+docker compose build app
 
-# 4. Recrie e suba o container da aplicação
+# 4. Suba os serviços necessários
+docker compose up -d db libretranslate
+
+# 5. Rode migrations versionadas do Prisma
+docker compose run --rm app npm run db:migrate:deploy
+
+# 6. Recrie e suba o container da aplicação
 docker compose up -d --force-recreate app
 ```
 
@@ -82,9 +88,14 @@ docker compose up -d --force-recreate app
 O arquivo `.env` **não é versionado** e deve estar presente na raiz do projeto na VPS. Variáveis necessárias:
 
 ```env
-DATABASE_URL=mysql://usuario:senha@host:3306/nome_do_banco
+DATABASE_URL=mysql://english:english_change_me@db:3306/english
 NEXTAUTH_SECRET=seu_secret_seguro
 NEXTAUTH_URL=https://english.forestcode.vps-kinghost.net
+MYSQL_ROOT_PASSWORD=sua_senha_root_forte
+MYSQL_DATABASE=english
+MYSQL_USER=english
+MYSQL_PASSWORD=sua_senha_forte
+LIBRARY_UPLOAD_DIR=/app/uploads/library
 ```
 
 > `LIBRETRANSLATE_URL` e `LIBRETRANSLATE_API_KEY` já estão definidas diretamente no `docker-compose.yml`.

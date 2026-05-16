@@ -59,6 +59,20 @@ export interface DashboardStats {
   level: string;
 }
 
+export interface LibraryPdfListItem {
+  id: string;
+  title: string;
+  originalName: string;
+  fileSize: number;
+  pageCount: number;
+  createdAt: string | Date;
+  updatedAt: string | Date;
+}
+
+export interface LibraryPdfDetail extends LibraryPdfListItem {
+  extractedText: string;
+}
+
 declare module "next-auth" {
   interface Session {
     user: {

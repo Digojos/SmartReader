@@ -5,17 +5,18 @@ import { usePathname } from "next/navigation";
 import { signOut, useSession } from "next-auth/react";
 import {
   BookOpen,
+  Library,
   LayoutDashboard,
   BookMarked,
   Brain,
   LogOut,
   User,
-  Flame,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 const navItems = [
   { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
+  { href: "/library", label: "Library", icon: Library },
   { href: "/reading", label: "Reading", icon: BookOpen },
   { href: "/vocabulary", label: "Vocabulary", icon: BookMarked },
   { href: "/quiz", label: "Quiz", icon: Brain },
